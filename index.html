@@ -6,80 +6,118 @@
     <title>Advanced Bakery Stacker</title>
     <style>
         body { margin: 0; overflow: hidden; background-color: #f7e6ff; font-family: 'Courier New', Courier, monospace; }
-        #gameArea { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column-reverse; align-items: center; }
-        .cake-layer { position: absolute; height: 40px; border-radius: 5px; box-shadow: inset 0 -5px 0 rgba(0,0,0,0.2); }
+        #gameArea { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+        .cake-layer { position: absolute; height: 40px; border-radius: 5px; box-shadow: inset 0 -5px 0 rgba(0,0,0,0.2); transition: bottom 0.2s ease-out; }
+        #plate { position: absolute; bottom: 0px; height: 20px; background-color: #555; border-radius: 10px; z-index: 10; transition: left 0.1s linear; }
         #score { position: absolute; top: 10px; left: 10px; font-size: 24px; z-index: 100; }
+        #failScreen { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 0, 0, 0.8); color: white; flex-direction: column; justify-content: center; align-items: center; z-index: 200; font-size: 40px; }
+        button { margin-top: 20px; padding: 10px 20px; font-size: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div id="score">Score: 0</div>
-    <div id="gameArea"></div>
+    <div id="score">Score: 0 | Goal: 10</div>
+    <div id="gameArea">
+        <div id="plate"></div>
+    </div>
+    <div id="failScreen">
+        <div>FAILED THE DELIVERY!</div>
+        <button onclick="location.reload()">Try Again</button>
+    </div>
 
 <script>
-    // Game State
+    // --- Configuration & State ---
     let gameArea = document.getElementById('gameArea');
     let scoreDisplay = document.getElementById('score');
-    let currentLayer;
-    let stack = [];
+    let plate = document.getElementById('plate');
+    let failScreen = document.getElementById('failScreen');
+    
+    let score = 0;
+    let goal = 10;
     let speed = 5;
     let width = 200;
-    let score = 0;
-    let direction = 1; // 1 for right, -1 for left
+    let plateWidth = 200;
     let xPos = 0;
-    let gameHeight = 0;
+    let plateX = (window.innerWidth / 2) - (plateWidth / 2);
+    let currentLayer;
+    let gameLoop;
+    let fallingSpeed = 3;
+    let flavors = ['#ffcccc', '#ffffcc', '#ccffcc', '#cce6ff', '#e6ccff']; // Pink, Yellow, Green, Blue, Purple
+    
+    // Plate Setup
+    plate.style.width = plateWidth + 'px';
+    plate.style.left = plateX + 'px';
 
-    // Initialize Game
-    function createLayer() {
-        if (currentLayer) {
-            currentLayer.style.animation = 'none'; // Stop moving
+    // --- Controls ---
+    document.addEventListener('keydown', (e) => {
+        const moveAmount = 30;
+        if ((e.key === 'ArrowLeft' || e.key === 'a') && plateX > 0) {
+            plateX -= moveAmount;
+        } else if ((e.key === 'ArrowRight' || e.key === 'd') && plateX < (window.innerWidth - plateWidth)) {
+            plateX += moveAmount;
         }
-        
-        // Create new element
+        plate.style.left = plateX + 'px';
+    });
+
+    // --- Game Logic ---
+    function createLayer() {
         let layer = document.createElement('div');
         layer.className = 'cake-layer';
         layer.style.width = width + 'px';
         layer.style.height = '40px';
-        layer.style.bottom = gameHeight + 'px';
-        layer.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
-        layer.style.left = '0px';
+        // Random flavor
+        layer.style.backgroundColor = flavors[Math.floor(Math.random() * flavors.length)];
+        layer.style.left = Math.random() * (window.innerWidth - width) + 'px';
+        layer.style.top = '0px';
         gameArea.appendChild(layer);
-        
         currentLayer = layer;
-        xPos = 0;
-        
-        // Move the layer
-        let move = setInterval(() => {
-            xPos += speed * direction;
-            layer.style.left = xPos + 'px';
-            
-            // Reverse direction on edges
-            if (xPos + width > window.innerWidth || xPos < 0) {
-                direction *= -1;
-            }
-        }, 20);
-        
-        currentLayer.dataset.moveInterval = move;
     }
 
-    // Place Layer Function
-    window.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
-            clearInterval(currentLayer.dataset.moveInterval);
-            
-            // Basic placement logic (overhang check needed for advanced)
-            gameHeight += 40;
-            score++;
-            scoreDisplay.innerText = "Score: " + score;
-            
-            // Make next layer slightly smaller to increase difficulty
-            width -= 5;
-            if (width < 30) width = 30;
-            
-            createLayer();
-        }
-    });
+    function gameUpdate() {
+        if (!currentLayer) createLayer();
 
-    createLayer(); // Start first layer
+        let top = parseFloat(currentLayer.style.top);
+        top += fallingSpeed;
+        currentLayer.style.top = top + 'px';
+
+        // Check if hit bottom
+        if (top > window.innerHeight - 60) { // 60 = plate height (20) + cake height (40)
+            checkCollision();
+        }
+    }
+
+    function checkCollision() {
+        let cakeLeft = parseFloat(currentLayer.style.left);
+        let cakeWidth = parseFloat(currentLayer.style.width);
+        
+        // If cake is within plate boundaries
+        if (cakeLeft + cakeWidth > plateX && cakeLeft < plateX + plateWidth) {
+            score++;
+            fallingSpeed += 0.5; // Speed up
+            width -= 2; // Make harder
+            plateWidth -= 2;
+            plate.style.width = plateWidth + 'px';
+            
+            scoreDisplay.innerText = `Score: ${score} | Goal: ${goal}`;
+            currentLayer.style.top = (window.innerHeight - 40 - (score * 10)) + 'px'; // Stack
+            currentLayer.style.left = plateX + 'px'; // Align
+            
+            if (score >= goal) {
+                alert("Level Passed!");
+                location.reload();
+            } else {
+                createLayer();
+            }
+        } else {
+            // FAILED
+            clearInterval(gameLoop);
+            failScreen.style.display = 'flex';
+        }
+    }
+
+    // Start Game
+    createLayer();
+    gameLoop = setInterval(gameUpdate, 20);
+
 </script>
 </body>
 </html>
