@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Bakery Stacker</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f7e6ff; font-family: 'Courier New', Courier, monospace; }
+        #gameArea { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column-reverse; align-items: center; }
+        .cake-layer { position: absolute; height: 40px; border-radius: 5px; box-shadow: inset 0 -5px 0 rgba(0,0,0,0.2); }
+        #score { position: absolute; top: 10px; left: 10px; font-size: 24px; z-index: 100; }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="gameArea"></div>
+
+<script>
+    // Game State
+    let gameArea = document.getElementById('gameArea');
+    let scoreDisplay = document.getElementById('score');
+    let currentLayer;
+    let stack = [];
+    let speed = 5;
+    let width = 200;
+    let score = 0;
+    let direction = 1; // 1 for right, -1 for left
+    let xPos = 0;
+    let gameHeight = 0;
+
+    // Initialize Game
+    function createLayer() {
+        if (currentLayer) {
+            currentLayer.style.animation = 'none'; // Stop moving
+        }
+        
+        // Create new element
+        let layer = document.createElement('div');
+        layer.className = 'cake-layer';
+        layer.style.width = width + 'px';
+        layer.style.height = '40px';
+        layer.style.bottom = gameHeight + 'px';
+        layer.style.backgroundColor = `hsl(${Math.random() * 360}, 70%, 60%)`;
+        layer.style.left = '0px';
+        gameArea.appendChild(layer);
+        
+        currentLayer = layer;
+        xPos = 0;
+        
+        // Move the layer
+        let move = setInterval(() => {
+            xPos += speed * direction;
+            layer.style.left = xPos + 'px';
+            
+            // Reverse direction on edges
+            if (xPos + width > window.innerWidth || xPos < 0) {
+                direction *= -1;
+            }
+        }, 20);
+        
+        currentLayer.dataset.moveInterval = move;
+    }
+
+    // Place Layer Function
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            clearInterval(currentLayer.dataset.moveInterval);
+            
+            // Basic placement logic (overhang check needed for advanced)
+            gameHeight += 40;
+            score++;
+            scoreDisplay.innerText = "Score: " + score;
+            
+            // Make next layer slightly smaller to increase difficulty
+            width -= 5;
+            if (width < 30) width = 30;
+            
+            createLayer();
+        }
+    });
+
+    createLayer(); // Start first layer
+</script>
+</body>
+</html>
